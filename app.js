@@ -246,16 +246,6 @@
       '<span>保存済みスレ <b>' + fmtNum(th.length) + '</b></span>' +
       '<span>画像 <b>' + fmtNum(totalImgs) + '</b></span></div>';
 
-    var warns = [];
-    if (manifest.missingNumbers && manifest.missingNumbers.length) {
-      var ms = manifest.missingNumbers;
-      warns.push('保存されていないスレ番号があります(' + ms.length + '件): ' + ms.slice(0, 60).join(', ') + (ms.length > 60 ? ' …' : ''));
-    }
-    (manifest.duplicateNumbers || []).forEach(function (d) { warns.push('同じスレ番号が複数あります: ' + d.number + ' (ID ' + d.ids.join(', ') + ')'); });
-    if (manifest.ignoredFiles && manifest.ignoredFiles.length) warns.push('名前の形式が違うため無視したファイル: ' + manifest.ignoredFiles.slice(0, 10).join(', '));
-    (manifest.warnings || []).slice(0, 20).forEach(function (w) { warns.push(w); });
-    warns.forEach(function (w) { h += '<div class="warn">⚠ ' + esc(w) + '</div>'; });
-
     h += '<div class="controls">' +
       '<label>並び替え <select id="ls-key">' + Object.keys(SORT_LABELS).map(function (k) {
         return '<option value="' + k + '"' + (listState.key === k ? ' selected' : '') + '>' + SORT_LABELS[k] + '</option>';
