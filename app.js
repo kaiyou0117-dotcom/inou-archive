@@ -232,25 +232,19 @@
     { key: 'title', label: 'タイトル' },
     { key: 'count', label: 'レス', num: true },
     { key: 'images', label: '画像', num: true, sm: true },
-    { key: 'likes', label: '♡合計', num: true, sm: true },
     { key: 'firstTs', label: '開始', sm: true },
     { key: 'lastTs', label: '最終レス', sm: true }
   ];
-  var SORT_LABELS = { number: 'スレ番号', firstTs: '開始日時', lastTs: '最終レス日時', count: 'レス数', images: '画像数', likes: 'いいね合計' };
+  var SORT_LABELS = { number: 'スレ番号', firstTs: '開始日時', lastTs: '最終レス日時', count: 'レス数', images: '画像数' };
 
   function renderHome() {
     document.title = '異能スレ アーカイブ';
     var th = manifest.threads;
-    var totalPosts = th.reduce(function (a, t) { return a + t.count; }, 0);
     var totalImgs = th.reduce(function (a, t) { return a + t.images; }, 0);
-    var minTs = Math.min.apply(null, th.map(function (t) { return t.firstTs || Infinity; }));
-    var maxTs = Math.max.apply(null, th.map(function (t) { return t.lastTs || 0; }));
     var h = '<h1 class="title">ここだけ異能のある世界 アーカイブ</h1>';
     h += '<div class="panel-box stats">' +
       '<span>保存済みスレ <b>' + fmtNum(th.length) + '</b></span>' +
-      '<span>総レス数 <b>' + fmtNum(totalPosts) + '</b></span>' +
-      '<span>画像 <b>' + fmtNum(totalImgs) + '</b></span>' +
-      '<span>期間 <b>' + fmtDate(isFinite(minTs) ? minTs : 0) + ' 〜 ' + fmtDate(maxTs) + '</b></span></div>';
+      '<span>画像 <b>' + fmtNum(totalImgs) + '</b></span></div>';
 
     var warns = [];
     if (manifest.missingNumbers && manifest.missingNumbers.length) {
@@ -304,7 +298,6 @@
         '<td><a class="t-title" href="#/t/' + t.id + '">' + esc(t.title) + '</a></td>' +
         '<td class="num">' + t.count + '</td>' +
         '<td class="num hide-sm">' + t.images + '</td>' +
-        '<td class="num hide-sm">' + fmtNum(t.likes) + '</td>' +
         '<td class="hide-sm">' + fmtDate(t.firstTs) + '</td>' +
         '<td class="hide-sm">' + fmtDate(t.lastTs) + '</td></tr>';
     }).join('');
