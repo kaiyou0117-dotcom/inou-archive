@@ -270,10 +270,10 @@
     { key: 'title', label: 'タイトル' },
     { key: 'count', label: 'レス', num: true },
     { key: 'images', label: '画像', num: true, sm: true },
-    { key: 'firstTs', label: '開始', sm: true },
-    { key: 'lastTs', label: '最終レス', sm: true }
+    { key: 'firstTs', label: '開始', sm: true, nosort: true },
+    { key: 'lastTs', label: '最終レス', sm: true, nosort: true }
   ];
-  var SORT_LABELS = { number: 'スレ番号', firstTs: '開始日時', lastTs: '最終レス日時', count: 'レス数', images: '画像数' };
+  var SORT_LABELS = { number: 'スレ番号', count: 'レス数', images: '画像数' };
 
   function renderHome() {
     document.title = '異能スレ アーカイブ';
@@ -313,6 +313,8 @@
       return '<th data-k="' + c.key + '" class="' + cls + '">' + c.label + '</th>';
     }).join('');
     Array.prototype.forEach.call(document.querySelectorAll('#ls-head th'), function (th) {
+      var key0 = th.getAttribute('data-k');
+      if (key0 === 'firstTs' || key0 === 'lastTs') { th.style.cursor = 'default'; return; }
       th.onclick = function () {
         var key = th.getAttribute('data-k');
         if (listState.key === key) listState.dir = -listState.dir; else { listState.key = key; listState.dir = key === 'title' ? 1 : -1; }
