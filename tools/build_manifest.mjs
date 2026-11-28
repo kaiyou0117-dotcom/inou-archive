@@ -30,7 +30,8 @@ for (const f of names.filter((n) => PATTERN.test(n))) {
   const entry = {
     id: String(d.threadId),
     number: d.number,
-    title: d.title,
+    // タイトルに番号がないスレ(スレ主のミス)は、手動で付けた番号を末尾に足して表示する
+    title: /\d+\s*$/.test(d.title || '') ? d.title : `${(d.title || '').trim()} ${d.number}`,
     count: posts.length,
     expectedCount: d.expectedCount ?? null,
     deleted: posts.filter((p) => p.deleted).length,
