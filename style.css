@@ -198,3 +198,16 @@ footer.site { max-width: 1000px; margin: 0 auto; padding: 12px; font-size: 1.15r
   table.threads .hide-sm { display: none; }
   h1.title { font-size: 1.9rem; }
 }
+
+/* リンクカード(スレのURLなど) */
+a.linkcard { display: block; margin: 6px 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; text-decoration: none; background: rgba(128,128,128,.07); max-width: 640px; }
+a.linkcard:hover { background: rgba(70,130,220,.12); }
+a.linkcard .lc-title { display: block; font-weight: bold; color: #1a5fb4; font-size: 1.4rem; }
+a.linkcard .lc-desc { display: block; margin-top: 2px; color: #666; font-size: 1.2rem; font-weight: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+a.linkcard .lc-url { display: block; margin-top: 2px; color: #888; font-size: 1.1rem; font-weight: normal; }
+a.linkcard.internal { border-color: #4a86d8; }
+a.linkcard.internal .lc-url { color: #1a5fb4; }
+.orig-url { margin: 4px 0 8px; font-size: 1.3rem; color: #666; word-break: break-all; }
+html[data-theme="dark"] a.linkcard .lc-title { color: #7fb2ff; }
+html[data-theme="dark"] a.linkcard .lc-desc { color: #aaa; }
+html[data-theme="dark"] .orig-url { color: #aaa; }

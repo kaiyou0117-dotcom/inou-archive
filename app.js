@@ -144,12 +144,44 @@
     });
     return out + esc(raw.slice(pos));
   }
-  function inline(raw, tid, terms) {
-    var re = /(https?:\/\/[^\s<>"]+)|(>>(\d+))/g, out = '', last = 0, m;
+  // あにまんのスレURLが、このアーカイブに保存済みなら、アーカイブ内の移動先を返す
+  function archiveRoute(href) {
+    var m = /^https?:\/\/bbs\.animanch\.com\/board\/(\d+)\/?(?:\?[^#]*?\bres=(\d+))?/.exec(href || '');
+    if (!m || !byId.has(m[1])) return null;
+    return { id: m[1], res: m[2] ? parseInt(m[2], 10) : null };
+  }
+  function anchorFor(href, innerHTML, cls, curTid) {
+    var r = archiveRoute(href);
+    if (r) {
+      return '<a class="' + cls + ' internal" href="#/t/' + r.id + (r.res ? '/' + r.res : '') + '"' +
+        (r.res ? ' data-t="' + r.id + '" data-res="' + r.res + '"' : '') + '>' + innerHTML + '</a>';
+    }
+    return '<a class="' + cls + '" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + innerHTML + '</a>';
+  }
+  // 「タイトル｜あにまん掲示板説明文…bbs.animanch.com」のようなリンクカードの文字を、見やすい形にする
+  function cardHTML(link, curTid) {
+    var t = String(link.text || ''), href = link.href;
+    var domain = '';
+    var dm = /(bbs\.animanch\.com|w\.atwiki\.jp|[a-z0-9.-]+\.[a-z]{2,})\s*$/i.exec(t);
+    if (dm && t.length > dm[0].length) { domain = dm[1]; t = t.slice(0, dm.index); }
+    var title = t, desc = '';
+    var k = t.indexOf('｜あにまん掲示板');
+    if (k >= 0) { title = t.slice(0, k + '｜あにまん掲示板'.length); desc = t.slice(k + '｜あにまん掲示板'.length); }
+    else if (t.length > 60) { title = t.slice(0, 40); desc = t.slice(40); }
+    var inner = '<span class="lc-title">' + esc(title) + '</span>' +
+      (desc ? '<span class="lc-desc">' + esc(desc) + '</span>' : '') +
+      '<span class="lc-url">' + esc(domain || href) + (archiveRoute(href) ? ' (アーカイブ内で開く)' : '') + '</span>';
+    return anchorFor(href, inner, 'linkcard', curTid);
+  }
+  function inline(raw, tid, terms, links) {
+    var re = /(https?:\/\/[^\s<>"\u0001]+)|(>>(\d+))|\u0001(\d+)\u0001/g, out = '', last = 0, m;
     while ((m = re.exec(raw))) {
       out += highlight(raw.slice(last, m.index), terms);
       if (m[1]) {
-        out += '<a href="' + esc(m[1]) + '" target="_blank" rel="noopener noreferrer">' + esc(m[1]) + '</a>';
+        out += anchorFor(m[1], esc(m[1]), 'extlink', tid);
+      } else if (m[4] !== undefined) {
+        var lk = links && links[parseInt(m[4], 10)];
+        out += lk ? cardHTML(lk, tid) : '';
       } else {
         out += '<a class="reslink" data-t="' + esc(tid) + '" data-res="' + m[3] + '" href="#/t/' + esc(tid) + '/' + m[3] + '">&gt;&gt;' + m[3] + '</a>';
       }
@@ -159,9 +191,15 @@
   }
   function bodyHTML(p, tid, terms) {
     var cls = p.deleted ? 'disabled' : (p.cls || 'nomal');
-    var lines = String(p.text || '').split('\n');
+    // リンクカードの文字を目印に置き換えてから、行ごとに整形する
+    var text = String(p.text || '');
+    var links = p.links || [];
+    links.forEach(function (lk, i) {
+      if (lk.text && lk.text.length > 3 && text.indexOf(lk.text) >= 0) text = text.split(lk.text).join('\u0001' + i + '\u0001');
+    });
+    var lines = text.split('\n');
     var html = lines.map(function (ln) {
-      return ln === '' ? '<p><br></p>' : '<p>' + inline(ln, tid, terms) + '</p>';
+      return ln === '' ? '<p><br></p>' : '<p>' + inline(ln, tid, terms, links) + '</p>';
     }).join('');
     var imgs = '';
     if (p.images && p.images.length) {
@@ -313,13 +351,14 @@
       if (currentRoute && currentRoute.indexOf('/t/' + id) !== 0) return;
       var prev = byNumber.get(t.number - 1), next = byNumber.get(t.number + 1);
       var h = crumbs(t.title, id) + '<h1 class="title">' + esc(t.title) + '</h1>';
+      var origUrl = ORIGIN_BOARD + id + '/';
+      h += '<div class="orig-url">元のスレ(あにまん掲示板): <a href="' + esc(origUrl) + '" target="_blank" rel="noopener noreferrer">' + esc(origUrl) + '</a></div>';
       h += '<div class="thread-tools">' +
         (prev ? '<a href="#/t/' + prev.id + '">← 前スレ(' + prev.number + ')</a>' : '<span>← 前スレなし</span>') +
         (next ? '<a href="#/t/' + next.id + '">次スレ(' + next.number + ') →</a>' : '<span>次スレなし →</span>') +
         '<label>レス番号へ <input type="number" id="jump" min="1" max="' + data.posts.length + '"></label>' +
         '<label>このスレ内で絞り込み <input type="text" id="tfilter" placeholder="本文・名前"></label>' +
         '<span id="tcount"></span>' +
-        '<a href="' + ORIGIN_BOARD + esc(id) + '/" target="_blank" rel="noopener noreferrer">元のスレ(あにまん)</a>' +
         '</div>';
       h += '<ul class="reslist" id="reslist">' + data.posts.map(function (p) {
         return '<li class="res" id="res' + p.no + '" data-no="' + p.no + '">' + headerHTML(p) + bodyHTML(p, id, null) + '</li>';
