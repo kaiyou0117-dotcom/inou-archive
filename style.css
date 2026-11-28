@@ -211,3 +211,12 @@ a.linkcard.internal .lc-url { color: #1a5fb4; }
 html[data-theme="dark"] a.linkcard .lc-title { color: #7fb2ff; }
 html[data-theme="dark"] a.linkcard .lc-desc { color: #aaa; }
 html[data-theme="dark"] .orig-url { color: #aaa; }
+
+/* 検索条件の行 */
+.cond-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; }
+.cond-row .cond-no { width: 2.6em; font-size: 1.3rem; color: #666; flex: none; }
+.cond-row select { flex: none; }
+.cond-row .c-q { flex: 1 1 220px; min-width: 0; }
+.cond-row .c-ex { flex: none; font-size: 1.3rem; white-space: nowrap; }
+.muted.small { font-size: 1.2rem; margin: 4px 0 8px; }
+@media (max-width: 600px) { .cond-row .cond-no { width: auto; } }

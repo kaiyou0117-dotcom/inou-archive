@@ -461,59 +461,113 @@
     return { inc: inc.filter(Boolean), exc: exc.filter(Boolean) };
   }
 
+  var FIELD_LABELS = [['text', '本文'], ['name', '名前(コテハン)'], ['both', '本文+名前']];
+
+  // URLから条件の一覧を読み取る(c=対象|除外|ワード を何個でも / 古い形式の q= も読める)
+  function rowsFromParams(params) {
+    var rows = [];
+    params.getAll('c').forEach(function (v) {
+      var m = /^(text|name|both)\|([01])\|([\s\S]*)$/.exec(v);
+      if (m) rows.push({ f: m[1], ex: m[2] === '1', q: m[3] });
+    });
+    if (!rows.length && (params.get('q') || '')) {
+      var txt = params.get('text') !== '0', nm = params.get('name') === '1';
+      rows.push({ f: txt && nm ? 'both' : (nm ? 'name' : 'text'), ex: false, q: params.get('q') });
+    }
+    if (!rows.length) rows.push({ f: 'text', ex: false, q: '' });
+    return rows;
+  }
+  function condRowHTML(r, i) {
+    return '<div class="cond-row">' +
+      '<span class="cond-no">' + (i === 0 ? '条件' : 'かつ') + '</span>' +
+      '<select class="c-f">' + FIELD_LABELS.map(function (x) {
+        return '<option value="' + x[0] + '"' + (r.f === x[0] ? ' selected' : '') + '>' + x[1] + '</option>';
+      }).join('') + '</select>' +
+      '<input type="text" class="c-q" placeholder="検索ワード(スペースでAND / -語で除外 / &quot;…&quot;で完全一致)" value="' + esc(r.q) + '">' +
+      '<label class="c-ex"><input type="checkbox" class="c-x"' + (r.ex ? ' checked' : '') + '> 含まない</label>' +
+      '<button type="button" class="btn sub c-del" title="この条件を消す">✕</button></div>';
+  }
+
   function renderSearch(params) {
-    var q = params.get('q') || '';
+    var rows = rowsFromParams(params);
     var o = {
-      q: q,
-      text: params.get('text') !== '0',
-      name: params.get('name') === '1',
+      rows: rows,
       from: params.get('from') || '',
       to: params.get('to') || '',
       sort: params.get('sort') || 'new'
     };
-    document.title = (q ? '「' + q + '」の検索結果' : 'レス検索') + ' | 異能スレ アーカイブ';
-    var tq = $('#q-top'); if (tq) tq.value = q;
+    var first = rows.filter(function (r) { return r.q.trim(); })[0];
+    document.title = (first ? '「' + first.q + '」の検索結果' : 'レス検索') + ' | 異能スレ アーカイブ';
+    var tq = $('#q-top'); if (tq) tq.value = first ? first.q : '';
     app.innerHTML = '<h1 class="title">レス検索</h1>' +
-      '<form id="sform" class="panel-box"><div class="controls">' +
-      '<input type="text" class="wide" id="s-q" placeholder="検索ワード(スペースでAND / -語で除外 / &quot;…&quot;で完全一致)" value="' + esc(q) + '">' +
+      '<form id="sform" class="panel-box">' +
+      '<div id="conds"></div>' +
+      '<div class="controls"><button type="button" class="btn sub" id="add-cond">＋ 条件を追加</button>' +
       '<button class="btn" type="submit">検索</button></div>' +
+      '<div class="muted small">すべての条件を満たす「1つのレス」を探します。例: 名前に「刃線」、本文に「ヴィラン」 → 刃線さんがヴィランと書いたレス</div>' +
       '<div class="controls">' +
-      '<label><input type="checkbox" id="s-text"' + (o.text ? ' checked' : '') + '> 本文</label>' +
-      '<label><input type="checkbox" id="s-name"' + (o.name ? ' checked' : '') + '> 名前(コテハン)</label>' +
       '<label>スレ番号 <input type="number" id="s-from" min="1" placeholder="最小" value="' + esc(o.from) + '"> 〜 <input type="number" id="s-to" min="1" placeholder="最大" value="' + esc(o.to) + '"></label>' +
       '<label>並び替え <select id="s-sort">' + SEARCH_SORTS.map(function (s) {
         return '<option value="' + s[0] + '"' + (o.sort === s[0] ? ' selected' : '') + '>' + s[1] + '</option>';
       }).join('') + '</select></label></div></form>' +
       '<div id="s-status" class="muted"></div><div class="progress"><div id="s-bar"></div></div><div id="s-results"></div>';
 
+    var conds = $('#conds');
+    function redrawConds(list) {
+      conds.innerHTML = list.map(condRowHTML).join('');
+      Array.prototype.forEach.call(conds.querySelectorAll('.c-del'), function (btn, i) {
+        btn.style.visibility = list.length > 1 ? 'visible' : 'hidden';
+        btn.onclick = function () { var cur = readConds(); cur.splice(i, 1); redrawConds(cur.length ? cur : [{ f: 'text', ex: false, q: '' }]); };
+      });
+    }
+    function readConds() {
+      return Array.prototype.map.call(conds.querySelectorAll('.cond-row'), function (row) {
+        return { f: row.querySelector('.c-f').value, ex: row.querySelector('.c-x').checked, q: row.querySelector('.c-q').value };
+      });
+    }
+    redrawConds(rows);
+    $('#add-cond').onclick = function () {
+      var cur = readConds(); cur.push({ f: 'text', ex: false, q: '' }); redrawConds(cur);
+      var qs = conds.querySelectorAll('.c-q'); qs[qs.length - 1].focus();
+    };
     $('#sform').onsubmit = function (e) {
       e.preventDefault();
       var p = new URLSearchParams();
-      p.set('q', $('#s-q').value);
-      if (!$('#s-text').checked) p.set('text', '0');
-      if ($('#s-name').checked) p.set('name', '1');
+      readConds().forEach(function (r) { if (r.q.trim()) p.append('c', r.f + '|' + (r.ex ? 1 : 0) + '|' + r.q); });
       if ($('#s-from').value) p.set('from', $('#s-from').value);
       if ($('#s-to').value) p.set('to', $('#s-to').value);
       p.set('sort', $('#s-sort').value);
       navigate('/s?' + p.toString());
     };
     $('#s-sort').onchange = function () { $('#sform').requestSubmit ? $('#sform').requestSubmit() : $('#sform').onsubmit(new Event('submit')); };
-    var pq = parseQuery(q);
-    if (!pq.inc.length && !pq.exc.length) {
-      $('#s-status').textContent = '検索ワードを入れてください。保存済みの全スレから、本文(と名前)を探します。';
+
+    // 検索用に整える(ワードの空の条件は無視)
+    var compiled = [];
+    rows.forEach(function (r) {
+      var pq = parseQuery(r.q);
+      if (pq.inc.length || pq.exc.length) compiled.push({ f: r.f, ex: r.ex, inc: pq.inc, exc: pq.exc });
+    });
+    if (!compiled.length) {
+      $('#s-status').textContent = '検索ワードを入れてください。保存済みの全スレから探します。条件は「＋ 条件を追加」で増やせます。';
       $('#s-bar').parentNode.style.display = 'none';
       return;
     }
-    runSearch(o, pq);
+    runSearch(o, compiled);
   }
 
-  function runSearch(o, pq) {
+  function runSearch(o, conds) {
     var token = ++searchToken;
     var from = parseInt(o.from, 10) || 0, to = parseInt(o.to, 10) || Infinity;
     var scope = manifest.threads.filter(function (t) { return t.number >= from && t.number <= to; });
     var results = [], done = 0, limit = 100, dirty = true, finished = false;
     var status = $('#s-status'), bar = $('#s-bar'), box = $('#s-results');
-    var terms = pq.inc;
+    // 色を付ける語(本文の条件 / 名前の条件)
+    var textTerms = [], nameTerms = [];
+    conds.forEach(function (c) {
+      if (c.ex) return;
+      if (c.f !== 'name') textTerms = textTerms.concat(c.inc);
+      if (c.f !== 'text') nameTerms = nameTerms.concat(c.inc);
+    });
 
     function sortResults() {
       var k = o.sort;
@@ -537,10 +591,10 @@
       box.innerHTML = shown.map(function (r) {
         return '<div class="hit">' +
           '<div class="where"><a href="#/t/' + r.t.id + '/' + r.p.no + '">' + esc(r.t.title) + ' &gt;&gt;' + r.p.no + '</a></div>' +
-          '<div class="resheader"><span class="resname">' + highlight(r.p.name, o.name ? terms : null) + '</span>' +
+          '<div class="resheader"><span class="resname">' + highlight(r.p.name, nameTerms) + '</span>' +
           '<span class="resposted">' + esc(r.p.posted) + '</span>' +
           '<span class="heart' + (r.p.likes ? '' : ' zero') + '">♡ ' + (r.p.likes || 0) + '</span></div>' +
-          bodyHTML(r.p, r.t.id, o.text ? terms : null) + '</div>';
+          bodyHTML(r.p, r.t.id, textTerms) + '</div>';
       }).join('') + (results.length > limit ? '<div class="center"><button class="btn sub" id="more">もっと見る(残り ' + fmtNum(results.length - limit) + ' 件)</button></div>' : '') +
         (finished && !results.length ? '<p class="muted">見つかりませんでした。</p>' : '');
       var more = $('#more'); if (more) more.onclick = function () { limit += 100; draw(); };
@@ -555,10 +609,15 @@
       for (var i = 0; i < data.posts.length; i++) {
         var p = data.posts[i];
         if (p.deleted) continue;
-        var hay = (o.text ? nm.t[i] : '') + (o.text && o.name ? '\n' : '') + (o.name ? nm.n[i] : '');
         var ok = true;
-        for (var a = 0; a < pq.inc.length && ok; a++) if (hay.indexOf(pq.inc[a]) < 0) ok = false;
-        for (var b = 0; b < pq.exc.length && ok; b++) if (hay.indexOf(pq.exc[b]) >= 0) ok = false;
+        for (var c = 0; c < conds.length && ok; c++) {
+          var cd = conds[c];
+          var hay = cd.f === 'text' ? nm.t[i] : (cd.f === 'name' ? nm.n[i] : nm.t[i] + '\n' + nm.n[i]);
+          var hit = true;
+          for (var a2 = 0; a2 < cd.inc.length && hit; a2++) if (hay.indexOf(cd.inc[a2]) < 0) hit = false;
+          for (var b2 = 0; b2 < cd.exc.length && hit; b2++) if (hay.indexOf(cd.exc[b2]) >= 0) hit = false;
+          if (cd.ex ? hit : !hit) ok = false;
+        }
         if (ok) results.push({ t: t, p: p, ts: parseTs(p.posted) });
       }
     }
